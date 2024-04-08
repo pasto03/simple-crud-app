@@ -1,4 +1,4 @@
-# simple-crud-app-backend
+# simple-crud-app
 A simple node.js application that provides CRUD operations in API or through web application for a simple entity called "Product".
 
 ## Usage
