@@ -1,0 +1,2 @@
+1. Need to specify port when running docker container
+eg. docker run -p 8080 simple-crud-app

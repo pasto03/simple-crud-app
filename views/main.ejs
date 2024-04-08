@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- load bootstrap -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- load jquery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    </script>
+    <title>Database</title>
+</head>
+
+<body>
+    <!-- title -->
+    <h1 class="display-3">Database</h1>
+    <!-- table with 5 rows from mongodb database, with table-striped bootstrap -->
+    <table class="table table-striped" id="database">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Quantity</th>
+                <th scope="col">Price</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% for(var i=0; i < data.length; i++) { %>
+                <tr id=<%=data[i]._id %>>
+                    <td>
+                        <%= data[i].name %>
+                    </td>
+                    <td>
+                        <%= data[i].quantity %>
+                    </td>
+                    <td>
+                        <%= data[i].price %>
+                    </td>
+                    <td>
+                        <button class="btn btn-success" onclick="modify('<%= data[i]._id %>')">Modify</button>
+                        <button class="btn btn-danger" onclick="deleteItem('<%= data[i]._id %>')">Delete</button>
+                    </td>
+                </tr>
+                <% } %>
+        </tbody>
+    </table>
+
+    <button id="addRow" class="btn btn-primary">+ Add Row</button>
+
+
+
+    <script>
+        // list for column of table above
+        let columns = ['name', 'quantity', 'price'];
+
+        // use jquery
+        $(document).ready(function () {
+
+            // add new row
+            $("#addRow").click(function () {
+                const td = "<td contenteditable='true' ></td>"
+                const btnHTMLs = `<td><button class="btn btn-primary save" id="save" disabled='disabled'>Save</button><button class="btn btn-danger" id="cancel">Cancel</button></td>`;
+                const newCols = td.repeat(columns.length) + btnHTMLs;
+                let newRow = `<tr id='newRow' ">${newCols}</tr>`;
+                console.log(newRow);
+                $("#database > tbody").append(newRow);
+
+                // make "add row" button disabled
+                $("#addRow").attr("disabled", "true");
+            });
+
+            // event handler for new row
+            $("tbody").on("keydown", "#newRow", function () {
+                verifyRow(newRow);
+            });
+
+            // save new row
+            $("tbody").on("click", "#save", function () {
+                console.log("Save button clicked.");
+                const newRow = $("#newRow");
+                const data = verifyRow(newRow);
+                // console.log(data);
+                if (!data) {
+                    return;
+                }
+
+                fetch('/api/products/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                }).then(function (response) {
+                    const id = response._id;
+                    newRow.attr("id", id);
+
+                    // switch save button to modify
+                    let modBtn = newRow.find('.btn-primary')[0];
+                    modBtn.innerText = 'Modify';
+                    modBtn.className = 'btn btn-success';
+                    modBtn.onclick = function () { modify(id); };
+                    modBtn.removeAttribute("id");
+
+                    // switch cancel button to "delete"
+                    let DelBtn = newRow.find('.btn-danger')[0];
+                    DelBtn.innerText = 'Delete';
+                    DelBtn.onclick = function () { deleteItem(id); };
+                    DelBtn.removeAttribute("id");
+
+                    // content become uneditable
+                    let cells = newRow.find("#td");
+                    for (var i = 0; i < cells.length - 1; i++) {
+                        var cell = cells[i];
+                        cell.removeAttribute("contenteditable");
+                    }
+                    return response.json();
+                }).catch(function (error) {
+                    console.log('Error:', error);
+                });
+            });
+
+            // cancel new row
+            $("tbody").on("click", "#cancel", function () {
+                console.log("Cancel button clicked.");
+                $("#newRow").remove();
+                $("#addRow").removeAttr("disabled");
+            });
+
+        });
+
+        // parse cell content
+        function parseContent(content) {
+            let newContent = null;
+            if (parseInt(content)) {
+                newContent = parseInt(content);
+                if (parseFloat(content)) {
+                    newContent = parseFloat(content);
+                }
+            }
+            else {
+                newContent = content;
+            }
+
+            return newContent;
+        }
+
+        // check if all row data are entered
+        function verifyRow(el) {
+            const cells = $(el).children();
+            let data = {};
+            // for each cells, if no input, return; else continue until enable save button
+            for (index = 0; index < cells.length - 1; index++) {
+                const content = cells[index].textContent;
+                const isValid = content != "";
+                if (!isValid) {
+                    $(el).find("#save").attr("disabled", "disabled");
+                    return "";
+                }
+                // console.log(`cell ${index}: ${content}`);
+                // if valid, add content to object
+                data[columns[index]] = parseContent(content);
+                // console.log("Parsed content: " + parseContent(content));
+
+            }
+            // enable save button
+            // console.log($(el).find("td"));
+            $(el).find("#save").removeAttr("disabled");
+            return data;
+        }
+
+        /* do not modify function below */
+        function modify(id) {
+            console.log(id);
+            var row = document.getElementById(id);
+            var cells = row.getElementsByTagName('td');
+
+            for (var i = 0; i < cells.length - 1; i++) {
+                var cell = cells[i];
+                // console.log(cell);
+                cell.setAttribute("contenteditable", "true");
+            }
+
+            var button = row.getElementsByClassName('btn-success')[0];
+            button.innerText = 'Save';
+            button.className = 'btn btn-primary';
+            button.onclick = function () { save(id); };
+        }
+
+        function save(id) {
+            var row = document.getElementById(id);
+            console.log(row);
+            var cells = row.getElementsByTagName('td');
+            var data = {};
+
+            for (var i = 0; i < cells.length - 1; i++) {
+                var cell = cells[i];
+                data[columns[i]] = cell.innerText;
+            }
+            console.log(data);
+
+            fetch('/api/products/' + id, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            }).then(function (response) {
+                return response.json();
+            }).catch(function (error) {
+                console.log('Error:', error);
+            });
+
+            // switch back "save" button to "modify"
+            var button = row.getElementsByClassName('btn-primary')[0];
+            button.innerText = 'Modify';
+            button.className = 'btn btn-success';
+            button.onclick = function () { modify(id); };
+
+            // content become uneditable
+            for (var i = 0; i < cells.length - 1; i++) {
+                var cell = cells[i];
+                cell.setAttribute("contenteditable", "false");
+            }
+        }
+
+        function deleteItem(id) {
+            fetch('/api/products/' + id, {
+                method: 'DELETE',
+            }).then(function () {
+                var row = document.getElementById(id);
+                row.parentNode.removeChild(row);
+            });
+        }
+    </script>
+
+</body>
+
+</html>
